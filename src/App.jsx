@@ -100,7 +100,7 @@ export default function AppetiteControlChatbot() {
             <div className="bg-red-900 text-white p-4 shadow-lg">
                 <h1 className="text-2xl font-bold flex items-center gap-2">
                     <Bot className="w-8 h-8" />
-                    식욕 억제 독설 챗봇
+                    송정영 식욕 억제 독설 챗봇
                 </h1>
                 <p className="text-sm text-red-200 mt-1">배고플 때 정신 차리게 해드립니다</p>
             </div>
