@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User } from 'lucide-react';
 
-export default function App() {
+export default function AppetiteControlChatbot() {
     const [messages, setMessages] = useState([
         { role: 'assistant', content: '또 먹을 생각하고 있나? 말해봐, 들어줄게.' }
     ]);
@@ -17,22 +17,13 @@ export default function App() {
         scrollToBottom();
     }, [messages]);
 
-    const systemPrompt = `당신은 사용자의 식욕을 억제하기 위한 독설 전문 챗봇입니다. 
-사용자가 배고프다고 하거나 먹고 싶다고 할 때, 거침없고 날카로운 독설로 정신을 차리게 해주세요.
+    // Gemini가 이해할 수 있는 시스템 프롬프트 (조금 더 명확하게 수정)
+    const systemPrompt = `당신은 사용자의 식욕을 억제하는 임무를 가진 '독설 챗봇'입니다. 사용자가 음식에 대한 유혹을 보일 때, 매우 직설적이고 거침없는 독설로 정신을 차리게 만들어야 합니다. 반말을 사용하고, 짧고 강렬하게 2-3문장으로 응답하세요. 사용자의 의지박약을 비판하고, 현실을 냉정하게 알려주되, 모욕이나 인격 비하는 피하세요. 당신의 독설은 궁극적으로 사용자의 건강한 삶을 위한 것입니다.
 
-지침:
-- 예의 없이 직설적으로 말하세요
-- 사용자의 의지력을 비판하세요
-- 과장된 표현을 사용하세요
-- 건강과 관련된 현실을 냉정하게 짚어주세요
-- 하지만 너무 모욕적이거나 인격을 모독하지는 마세요
-- 궁극적으로는 사용자의 건강을 위한 것임을 암시하세요
-- 짧고 강렬하게 대답하세요 (2-3문장)
-- 반말을 사용하세요
-
-예시:
-"또 먹을거야? 방금 전에도 뭔가 집어먹지 않았나? 그 배는 위장이야 쓰레기통이야?"
-"지금 그 손에 든 과자 내려놔. 거울 좀 봐라. 더 먹어서 뭐하려고?"`;
+  예시:
+  - "또 먹을거야? 방금 전에도 뭔가 집어먹지 않았나? 그 배는 위장이야 쓰레기통이야?"
+  - "지금 그 손에 든 과자 내려놔. 거울 좀 봐라. 더 먹어서 뭐하려고?"
+  - "그거 하나 먹는다고 안 찐다고? 그런 생각이 널 그렇게 만든 거야."`;
 
     const handleSubmit = async () => {
         if (!input.trim() || isLoading) return;
@@ -42,33 +33,47 @@ export default function App() {
         setInput('');
         setIsLoading(true);
 
+        // --- Gemini API 호출 로직으로 변경 ---
         try {
-            // 전체 대화 기록을 포함한 메시지 배열 생성
+            // Gemini API 키 (Vercel 환경변수에서 가져옴)
+            const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+
+            // Gemini가 이해하는 대화 형식으로 변환
+            // Gemini는 'assistant' 대신 'model' 역할을 사용합니다.
             const conversationHistory = [
-                { role: 'system', content: systemPrompt },
                 ...messages.map(msg => ({
-                    role: msg.role === 'user' ? 'user' : 'assistant',
-                    content: msg.content
+                    role: msg.role === 'user' ? 'user' : 'model',
+                    parts: [{ text: msg.content }]
                 })),
-                { role: 'user', content: input }
+                { role: 'user', parts: [{ text: input }] }
             ];
 
-            const response = await fetch('https://api.anthropic.com/v1/messages', {
+            const response = await fetch(API_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    model: 'claude-sonnet-4-20250514',
-                    max_tokens: 1000,
-                    messages: conversationHistory.slice(1) // system 메시지 제외
+                    // 시스템 프롬프트를 요청 본문에 포함
+                    systemInstruction: {
+                        role: 'model',
+                        parts: [{ text: systemPrompt }]
+                    },
+                    contents: conversationHistory
                 })
             });
 
+            if (!response.ok) {
+                throw new Error(`API 요청 실패: ${response.statusText}`);
+            }
+
             const data = await response.json();
+
+            // Gemini 응답 구조에 맞게 수정
             const assistantMessage = {
                 role: 'assistant',
-                content: data.content[0].text
+                content: data.candidates[0].content.parts[0].text
             };
 
             setMessages(prev => [...prev, assistantMessage]);
@@ -84,7 +89,7 @@ export default function App() {
     };
 
     const handleKeyPress = (e) => {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && !isLoading) {
             handleSubmit();
         }
     };
