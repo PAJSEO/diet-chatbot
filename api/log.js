@@ -1,4 +1,4 @@
-// api/index.js
+// api/log.js
 
 import express from 'express';
 import { google } from 'googleapis';
