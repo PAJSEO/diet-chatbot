@@ -1,14 +1,11 @@
-// api/log.js
-
 import express from 'express';
 import { google } from 'googleapis';
 
 const app = express();
-app.use(express.json()); // 요청 본문의 JSON 파싱
+app.use(express.json());
 
-// 이 부분은 나중에 Vercel 배포 시 CORS 오류를 방지하기 위해 필요합니다.
 app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*'); // 모든 출처 허용
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') {
@@ -17,59 +14,79 @@ app.use((req, res, next) => {
     next();
 });
 
-// 구글 시트 로깅 함수
-async function appendToSheet(ip, question, answer) {
-    try {
-        // 1. Vercel 환경 변수에서 JSON 텍스트를 가져와 객체로 변환
-        const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
+const SPREADSHEET_ID = '1rAc4ioPe-iC5FsBa6VdGwGdSPOnBlW3RYjW1hNnQ9uY';
 
-        // 2. keyFile 대신 credentials 객체를 직접 사용
-        const auth = new google.auth.GoogleAuth({
-            credentials, // <--- 이 부분이 바뀜
-            scopes: 'https://www.googleapis.com/auth/spreadsheets',
+// 구글 인증 함수 (재사용을 위해 분리)
+async function getAuth() {
+    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
+    return new google.auth.GoogleAuth({
+        credentials,
+        scopes: 'https://www.googleapis.com/auth/spreadsheets',
+    });
+}
+
+// --- 대화 내역을 '읽어오는' 새로운 API ---
+app.get('/api/history', async (req, res) => {
+    const { userId } = req.query;
+    if (!userId) {
+        return res.status(400).send('UserID is required.');
+    }
+
+    try {
+        const auth = await getAuth();
+        const sheets = google.sheets({ version: 'v4', auth });
+
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: 'Sheet1!A:E', // 전체 데이터를 읽어옴
         });
 
-        const sheets = google.sheets({ version: 'v4', auth });
-        const spreadsheetId = '1rAc4ioPe-iC5FsBa6VdGwGdSPOnBlW3RYjW1hNnQ9uY';
+        const rows = response.data.values || [];
+        const userHistory = rows
+            .filter(row => row[0] === userId) // 해당 UserID의 대화만 필터링
+            .slice(1) // 헤더 행 제외
+            .flatMap(row => [ // 프론트엔드 형식으로 변환
+                { role: 'user', content: row[3] }, // 질문
+                { role: 'assistant', content: row[4] } // 답변
+            ]);
 
+        res.status(200).json(userHistory);
+    } catch (error) {
+        console.error('Error reading sheet history:', error);
+        res.status(500).send('Failed to read history.');
+    }
+});
+
+
+// --- 대화 내역을 '기록하는' 기존 API 수정 ---
+app.post('/api/log', async (req, res) => {
+    const { userId, question, answer } = req.body; // userId 추가
+    if (!userId || !question || !answer) {
+        return res.status(400).send('UserID, question, and answer are required.');
+    }
+
+    try {
+        const auth = await getAuth();
+        const sheets = google.sheets({ version: 'v4', auth });
+
+        const userIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
         const timestamp = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
 
-        const row = [ip, timestamp, question, answer];
+        const row = [userId, userIp, timestamp, question, answer];
 
         await sheets.spreadsheets.values.append({
-            spreadsheetId,
-            range: 'Sheet1!A:D',
+            spreadsheetId: SPREADSHEET_ID,
+            range: 'Sheet1!A:E', // 기록 범위 수정
             valueInputOption: 'USER_ENTERED',
             resource: {
                 values: [row],
             },
         });
-        return true;
+        res.status(200).send('Log saved successfully.');
     } catch (error) {
         console.error('Error writing to sheet:', error);
-        return false;
-    }
-}
-
-// 프론트엔드에서 호출할 API 엔드포인트
-app.post('/api/log', async (req, res) => {
-    const { question, answer } = req.body;
-
-    // Vercel 환경에서는 'x-forwarded-for' 헤더를 통해 IP를 가져옵니다.
-    const userIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-
-    if (!question || !answer) {
-        return res.status(400).send('Question and answer are required.');
-    }
-
-    const success = await appendToSheet(userIp, question, answer);
-
-    if (success) {
-        res.status(200).send('Log saved successfully.');
-    } else {
         res.status(500).send('Failed to save log.');
     }
 });
 
-// Vercel에서 서버를 실행하기 위해 export 해줍니다.
 export default app;

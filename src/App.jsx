@@ -1,10 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User } from 'lucide-react';
+import { Send, Bot, User, LogIn } from 'lucide-react';
 
 export default function AppetiteControlChatbot() {
-    const [messages, setMessages] = useState([
-        { role: 'assistant', content: '또 먹을 생각하고 있나? 말해봐, 들어줄게.' }
-    ]);
+    const [userId, setUserId] = useState(null); // 사용자 ID 상태 추가
+    const [messages, setMessages] = useState([]); // 초기 메시지는 비워둠
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef(null);
@@ -16,6 +15,43 @@ export default function AppetiteControlChatbot() {
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
+
+    // 앱 시작 시 사용자 ID 확인 및 대화 기록 불러오기
+    useEffect(() => {
+        const savedUserId = localStorage.getItem('chatbotUserId');
+        if (savedUserId) {
+            setUserId(savedUserId);
+            fetchHistory(savedUserId);
+        }
+    }, []);
+
+    const fetchHistory = async (id) => {
+        setIsLoading(true);
+        try {
+            const response = await fetch(`https://diet-chatbot.vercel.app/api/history?userId=${id}`);
+            if (!response.ok) return;
+            const history = await response.json();
+            setMessages([
+                { role: 'assistant', content: `${id}, 다시 왔구나? 또 뭘 먹으려고.` },
+                ...history
+            ]);
+        } catch (error) {
+            console.error("Failed to fetch history:", error);
+            setMessages([{ role: 'assistant', content: '대화 기록을 불러오는데 실패했어.' }]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleLogin = () => {
+        const id = prompt("기록을 남기려면 이름을 입력하세요 (예: 송정영):");
+        if (id && id.trim()) {
+            const trimmedId = id.trim();
+            localStorage.setItem('chatbotUserId', trimmedId);
+            setUserId(trimmedId);
+            fetchHistory(trimmedId);
+        }
+    };
 
     // Gemini가 이해할 수 있는 시스템 프롬프트 (조금 더 명확하게 수정)
     const systemPrompt = `당신은 '송정영'만을 위한 맞춤형 AI 조력자, 요미입니다. 당신은 그녀의 남자친구 '박정서'가 그녀의 성공적인 수험생활과 건강을 위해 만들었습니다. 당신의 목표는 송정영이 '대구교대 합격'과 아래의 '신체 재구성 목표'를 모두 달성하도록 돕는 것입니다.
@@ -75,13 +111,10 @@ export default function AppetiteControlChatbot() {
     `;
 
     const handleSubmit = async () => {
-        if (!input.trim() || isLoading) return;
-
-        const userQuestion = input; // << 1. 입력 내용을 미리 변수에 저장합니다.
+        if (!input.trim() || !userId || isLoading) return;
+        // ... (이하 handleSubmit 함수는 userId를 함께 보내도록 수정)
+        const userQuestion = input;
         const userMessage = { role: 'user', content: userQuestion };
-
-        // 2. 화면에 사용자 메시지를 먼저 표시합니다.
-        //    setState의 비동기적 특성을 고려하여, 다음 단계에서 API로 보낼 대화 내역을 직접 만듭니다.
         const newMessages = [...messages, userMessage];
         setMessages(newMessages);
         setInput('');
@@ -90,47 +123,32 @@ export default function AppetiteControlChatbot() {
         try {
             const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
-
-            // 3. API로 보낼 대화 내역(`contents`)을 'newMessages'를 사용해 만듭니다.
-            //    이렇게 하면 항상 최신 대화 내역 전체가 포함됩니다.
             const conversationHistory = newMessages.map(msg => ({
                 role: msg.role === 'user' ? 'user' : 'model',
                 parts: [{ text: msg.content }]
             }));
-
             const response = await fetch(API_URL, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    systemInstruction: {
-                        role: 'model',
-                        parts: [{ text: systemPrompt }]
-                    },
-                    contents: conversationHistory // << 전체 대화 내역을 전달
+                    systemInstruction: { role: 'model', parts: [{ text: systemPrompt }] },
+                    contents: conversationHistory
                 })
             });
-
-            if (!response.ok) {
-                throw new Error(`API 요청 실패: ${response.statusText}`);
-            }
-
+            if (!response.ok) throw new Error(`API 요청 실패: ${response.statusText}`);
             const data = await response.json();
             const assistantMessage = {
                 role: 'assistant',
                 content: data.candidates[0].content.parts[0].text
             };
-
-            // 4. 챗봇의 답변을 화면에 추가합니다.
             setMessages(prev => [...prev, assistantMessage]);
 
-            // 백엔드로 로그 전송
             try {
                 await fetch('https://diet-chatbot.vercel.app/api/log', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        userId, // << UserID 추가
                         question: userQuestion,
                         answer: assistantMessage.content
                     })
@@ -138,7 +156,6 @@ export default function AppetiteControlChatbot() {
             } catch (logError) {
                 console.error('Failed to log message:', logError);
             }
-
         } catch (error) {
             console.error('Error:', error);
             setMessages(prev => [...prev, {
@@ -151,10 +168,26 @@ export default function AppetiteControlChatbot() {
     };
 
     const handleKeyPress = (e) => {
-        if (e.key === 'Enter' && !isLoading) {
-            handleSubmit();
-        }
+        if (e.key === 'Enter') handleSubmit();
     };
+
+    // 사용자 ID가 없으면 로그인 화면을 보여줌
+    if (!userId) {
+        return (
+            <div className="flex flex-col h-screen bg-gray-900 items-center justify-center text-white">
+                <Bot size={64} className="text-red-500 mb-4" />
+                <h1 className="text-3xl font-bold mb-2">식욕 억제 독설 챗봇</h1>
+                <p className="mb-6 text-gray-400">대화 기록을 남기려면 로그인이 필요합니다.</p>
+                <button
+                    onClick={handleLogin}
+                    className="flex items-center gap-2 px-6 py-3 bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+                >
+                    <LogIn size={20} />
+                    이름으로 시작하기
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col h-screen bg-gray-900">
