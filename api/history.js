@@ -6,7 +6,7 @@ app.use(express.json());
 
 // CORS 헤더 설정
 app.use((req, res, next) => {
-    res.setHeader('Access-control-allow-origin', '*');
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') {
@@ -25,31 +25,32 @@ async function getAuth() {
     });
 }
 
-// 이 파일은 /api/log 요청만 처리합니다.
-app.post('/api/log', async (req, res) => {
-    const { userId, question, answer } = req.body;
-    if (!userId || !question || !answer) {
-        return res.status(400).send('UserID, question, and answer are required.');
+// 이 파일은 /api/history 요청만 처리합니다.
+app.get('/api/history', async (req, res) => {
+    const { userId } = req.query;
+    if (!userId) {
+        return res.status(400).send('UserID is required.');
     }
 
     try {
         const auth = await getAuth();
         const sheets = google.sheets({ version: 'v4', auth });
-        const userIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-        const timestamp = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
-        const row = [userId, userIp, timestamp, question, answer];
-        await sheets.spreadsheets.values.append({
+        const response = await sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
             range: 'Sheet1!A:E',
-            valueInputOption: 'USER_ENTERED',
-            resource: {
-                values: [row],
-            },
         });
-        res.status(200).send('Log saved successfully.');
+        const rows = response.data.values || [];
+        const userHistory = rows
+            .slice(1)
+            .filter(row => row && row[0] === userId)
+            .flatMap(row => [
+                { role: 'user', content: row[3] },
+                { role: 'assistant', content: row[4] }
+            ]);
+        res.status(200).json(userHistory);
     } catch (error) {
-        console.error('Error writing to sheet:', error);
-        res.status(500).send('Failed to save log.');
+        console.error('Error reading sheet history:', error);
+        res.status(500).send('Failed to read history.');
     }
 });
 
