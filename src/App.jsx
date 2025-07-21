@@ -44,7 +44,7 @@ export default function AppetiteControlChatbot() {
     };
 
     const handleLogin = () => {
-        const id = prompt("기록을 남기려면 이름을 입력하세요 (예: 송정영):");
+        const id = prompt("이름을 입력하세요 (예: 송정영):");
         if (id && id.trim()) {
             const trimmedId = id.trim();
             localStorage.setItem('chatbotUserId', trimmedId);
@@ -177,7 +177,7 @@ export default function AppetiteControlChatbot() {
             <div className="flex flex-col h-screen bg-gray-900 items-center justify-center text-white">
                 <Bot size={64} className="text-red-500 mb-4" />
                 <h1 className="text-3xl font-bold mb-2">식욕 억제 독설 챗봇</h1>
-                <p className="mb-6 text-gray-400">대화 기록을 남기려면 로그인이 필요합니다.</p>
+                <p className="mb-6 text-gray-400">로그인이 필요합니다.</p>
                 <button
                     onClick={handleLogin}
                     className="flex items-center gap-2 px-6 py-3 bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
