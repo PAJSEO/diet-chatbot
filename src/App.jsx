@@ -79,7 +79,9 @@ export default function AppetiteControlChatbot() {
 
         const userQuestion = input;
         const userMessage = { role: 'user', content: input };
-        setMessages(prev => [...prev, userMessage]);
+        //    setState의 비동기적 특성을 고려하여, 다음 단계에서 API로 보낼 대화 내역을 직접 만듭니다.
+        const newMessages = [...messages, userMessage];
+        setMessages(newMessages);
         setInput('');
         setIsLoading(true);
 
@@ -89,15 +91,12 @@ export default function AppetiteControlChatbot() {
             const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
 
-            // Gemini가 이해하는 대화 형식으로 변환
-            // Gemini는 'assistant' 대신 'model' 역할을 사용합니다.
-            const conversationHistory = [
-                ...messages.map(msg => ({
-                    role: msg.role === 'user' ? 'user' : 'model',
-                    parts: [{ text: msg.content }]
-                })),
-                { role: 'user', parts: [{ text: input }] }
-            ];
+            // 3. API로 보낼 대화 내역(`contents`)을 'newMessages'를 사용해 만듭니다.
+            //    이렇게 하면 항상 최신 대화 내역 전체가 포함됩니다.
+            const conversationHistory = newMessages.map(msg => ({
+                role: msg.role === 'user' ? 'user' : 'model',
+                parts: [{ text: msg.content }]
+            }));
 
             const response = await fetch(API_URL, {
                 method: 'POST',
