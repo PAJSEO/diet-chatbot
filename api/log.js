@@ -20,26 +20,25 @@ app.use((req, res, next) => {
 // 구글 시트 로깅 함수
 async function appendToSheet(ip, question, answer) {
     try {
+        // 1. Vercel 환경 변수에서 JSON 텍스트를 가져와 객체로 변환
+        const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
+
+        // 2. keyFile 대신 credentials 객체를 직접 사용
         const auth = new google.auth.GoogleAuth({
-            keyFile: 'credentials.json', // 서비스 계정 키 파일
+            credentials, // <--- 이 부분이 바뀜
             scopes: 'https://www.googleapis.com/auth/spreadsheets',
         });
 
         const sheets = google.sheets({ version: 'v4', auth });
-        const spreadsheetId = '1rAc4ioPe-iC5FsBa6VdGwGdSPOnBlW3RYjW1hNnQ9uY'; // 공유해주신 스프레드시트 ID
+        const spreadsheetId = '1rAc4ioPe-iC5FsBa6VdGwGdSPOnBlW3RYjW1hNnQ9uY';
 
         const timestamp = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
 
-        const row = [
-            ip,         // A열: IP 주소
-            timestamp,  // B열: 질문 시간
-            question,   // C열: 질문 내용
-            answer      // D열: 챗봇 답변
-        ];
+        const row = [ip, timestamp, question, answer];
 
         await sheets.spreadsheets.values.append({
             spreadsheetId,
-            range: 'Sheet1!A:D', // 데이터를 추가할 시트와 범위
+            range: 'Sheet1!A:D',
             valueInputOption: 'USER_ENTERED',
             resource: {
                 values: [row],
