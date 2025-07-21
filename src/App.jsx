@@ -28,6 +28,7 @@ export default function AppetiteControlChatbot() {
     const handleSubmit = async () => {
         if (!input.trim() || isLoading) return;
 
+        const userQuestion = input;
         const userMessage = { role: 'user', content: input };
         setMessages(prev => [...prev, userMessage]);
         setInput('');
@@ -77,6 +78,21 @@ export default function AppetiteControlChatbot() {
             };
 
             setMessages(prev => [...prev, assistantMessage]);
+
+            // 백엔드로 로그를 전송하는 코드
+            try {
+                // Vercel 배포 주소 전체를 사용하는 것이 더 안정적입니다.
+                await fetch('https://diet-chatbot.vercel.app/api/log', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        question: userQuestion, // 미리 저장해둔 질문 사용
+                        answer: assistantMessage.content
+                    })
+                });
+            } catch (logError) {
+                console.error('Failed to log message:', logError);
+            }
         } catch (error) {
             console.error('Error:', error);
             setMessages(prev => [...prev, {
