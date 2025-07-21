@@ -28,6 +28,9 @@ async function getAuth() {
 // --- 대화 내역을 '읽어오는' 새로운 API ---
 app.get('/api/history', async (req, res) => {
     const { userId } = req.query;
+    // [진단 로그 1] 프론트엔드에서 어떤 ID를 보냈는지 확인
+    console.log(`[History] Received request for userId: "${userId}"`);
+
     if (!userId) {
         return res.status(400).send('UserID is required.');
     }
@@ -38,17 +41,26 @@ app.get('/api/history', async (req, res) => {
 
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
-            range: 'Sheet1!A:E', // 전체 데이터를 읽어옴
+            range: 'Sheet1!A:E',
         });
 
         const rows = response.data.values || [];
-        const userHistory = rows
-            .filter(row => row[0] === userId) // 해당 UserID의 대화만 필터링
-            .slice(1) // 헤더 행 제외
-            .flatMap(row => [ // 프론트엔드 형식으로 변환
-                { role: 'user', content: row[3] }, // 질문
-                { role: 'assistant', content: row[4] } // 답변
-            ]);
+        // [진단 로그 2] 시트에서 총 몇 줄을 읽어왔는지 확인
+        console.log(`[History] Fetched ${rows.length} total rows from the sheet.`);
+
+        // [진단 로그 3] 시트의 데이터 샘플 확인 (A열의 UserID)
+        if (rows.length > 1) {
+            console.log(`[History] Sample UserID from sheet (Row 2, Col A): "${rows[1][0]}"`);
+        }
+
+        const filteredRows = rows.slice(1).filter(row => row && row[0] === userId);
+        // [진단 로그 4] ID로 필터링한 후 몇 줄이 남았는지 확인
+        console.log(`[History] Found ${filteredRows.length} rows after filtering for userId "${userId}".`);
+
+        const userHistory = filteredRows.flatMap(row => [
+            { role: 'user', content: row[3] },
+            { role: 'assistant', content: row[4] }
+        ]);
 
         res.status(200).json(userHistory);
     } catch (error) {
