@@ -77,17 +77,17 @@ export default function AppetiteControlChatbot() {
     const handleSubmit = async () => {
         if (!input.trim() || isLoading) return;
 
-        const userQuestion = input;
-        const userMessage = { role: 'user', content: input };
+        const userQuestion = input; // << 1. 입력 내용을 미리 변수에 저장합니다.
+        const userMessage = { role: 'user', content: userQuestion };
+
+        // 2. 화면에 사용자 메시지를 먼저 표시합니다.
         //    setState의 비동기적 특성을 고려하여, 다음 단계에서 API로 보낼 대화 내역을 직접 만듭니다.
         const newMessages = [...messages, userMessage];
         setMessages(newMessages);
         setInput('');
         setIsLoading(true);
 
-        // --- Gemini API 호출 로직으로 변경 ---
         try {
-            // Gemini API 키 (Vercel 환경변수에서 가져옴)
             const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
 
@@ -104,12 +104,11 @@ export default function AppetiteControlChatbot() {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    // 시스템 프롬프트를 요청 본문에 포함
                     systemInstruction: {
                         role: 'model',
                         parts: [{ text: systemPrompt }]
                     },
-                    contents: conversationHistory
+                    contents: conversationHistory // << 전체 대화 내역을 전달
                 })
             });
 
@@ -118,31 +117,28 @@ export default function AppetiteControlChatbot() {
             }
 
             const data = await response.json();
-
-            // Gemini 응답 구조에 맞게 수정
             const assistantMessage = {
                 role: 'assistant',
                 content: data.candidates[0].content.parts[0].text
             };
 
+            // 4. 챗봇의 답변을 화면에 추가합니다.
             setMessages(prev => [...prev, assistantMessage]);
 
-            // 백엔드로 로그를 전송하는 코드
+            // 백엔드로 로그 전송
             try {
-                //alert('이제 백엔드로 로그를 보냅니다! 이 창이 보이면 성공입니다.');
-                // Vercel 배포 주소 전체를 사용하는 것이 더 안정적입니다.
                 await fetch('https://diet-chatbot.vercel.app/api/log', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        question: userQuestion, // 미리 저장해둔 질문 사용
+                        question: userQuestion,
                         answer: assistantMessage.content
                     })
                 });
             } catch (logError) {
                 console.error('Failed to log message:', logError);
-                //alert('로그 전송에 실패했습니다. 개발자 도구 콘솔을 확인하세요.');
             }
+
         } catch (error) {
             console.error('Error:', error);
             setMessages(prev => [...prev, {
