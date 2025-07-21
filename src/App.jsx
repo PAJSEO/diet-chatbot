@@ -81,6 +81,7 @@ export default function AppetiteControlChatbot() {
 
             // 백엔드로 로그를 전송하는 코드
             try {
+                alert('이제 백엔드로 로그를 보냅니다! 이 창이 보이면 성공입니다.');
                 // Vercel 배포 주소 전체를 사용하는 것이 더 안정적입니다.
                 await fetch('https://diet-chatbot.vercel.app/api/log', {
                     method: 'POST',
@@ -92,6 +93,7 @@ export default function AppetiteControlChatbot() {
                 });
             } catch (logError) {
                 console.error('Failed to log message:', logError);
+                alert('로그 전송에 실패했습니다. 개발자 도구 콘솔을 확인하세요.');
             }
         } catch (error) {
             console.error('Error:', error);
