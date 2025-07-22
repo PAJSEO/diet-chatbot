@@ -217,7 +217,7 @@ export default function AppetiteControlChatbot() {
             console.error('Error:', error);
             setMessages(prev => [...prev, {
                 role: 'assistant',
-                content: '에러가 발생했어. 하지만 이것도 먹지 말라는 신호야. 정신 차려!'
+                content: '에러가 발생했어. 정서한테 연락해봐!'
             }]);
         } finally {
             setIsLoading(false);
@@ -236,8 +236,8 @@ export default function AppetiteControlChatbot() {
             <div className="flex flex-col h-screen bg-gray-900 items-center justify-center text-white p-4">
                 <div className="w-full max-w-sm text-center">
                     <Bot size={64} className="text-red-500 mb-4 mx-auto" />
-                    <h1 className="text-3xl font-bold mb-2">식욕 억제 독설 챗봇</h1>
-                    <p className="mb-6 text-gray-400">{isRegister ? '새로운 계정을 만드세요.' : '로그인이 필요합니다.'}</p>
+                    <h1 className="text-3xl font-bold mb-2">박정서의 분신 챗봇</h1>
+                    <p className="mb-6 text-gray-400">{isRegister ? '새로운 계정을 만드세요.' : '로그인을 하고 쓰거라'}</p>
 
                     <form onSubmit={isRegister ? handleRegister : handleLogin}>
                         <div className="space-y-4">
@@ -272,7 +272,7 @@ export default function AppetiteControlChatbot() {
                         onClick={() => { setIsRegister(!isRegister); setAuthError(''); }}
                         className="mt-4 text-sm text-gray-400 hover:text-white"
                     >
-                        {isRegister ? '이미 계정이 있으신가요? 로그인' : '계정이 없으신가요? 회원가입'}
+                        {isRegister ? '이미 계정이 있으면, 로그인하셈' : '계정이 없냐? 회원가입부터 해라'}
                     </button>
                 </div>
             </div>
@@ -286,9 +286,9 @@ export default function AppetiteControlChatbot() {
             <div className="bg-red-900 text-white p-4 shadow-lg">
                 <h1 className="text-2xl font-bold flex items-center gap-2">
                     <Bot className="w-8 h-8" />
-                    송정영 식욕 억제 독설 챗봇
+                    박정서의 분신 챗봇
                 </h1>
-                <p className="text-sm text-red-200 mt-1">배고플 때 정신 차리게 해드립니다</p>
+                <p className="text-sm text-red-200 mt-1">박정서 말투 따라 하려는 챗봇임</p>
             </div>
 
             {/* Messages Container */}
@@ -312,7 +312,7 @@ export default function AppetiteControlChatbot() {
                                     <Bot className="w-4 h-4" />
                                 )}
                                 <span className="text-xs font-semibold">
-                  {message.role === 'user' ? '배고픈 정영' : '독설봇'}
+                  {message.role === 'user' ? '박정서의노예' : '위대한박정서따라쟁이'}
                 </span>
                             </div>
                             <p className="text-sm whitespace-pre-wrap">{message.content}</p>
@@ -324,9 +324,9 @@ export default function AppetiteControlChatbot() {
                         <div className="bg-red-800 text-white px-4 py-2 rounded-lg border border-red-600">
                             <div className="flex items-center gap-2">
                                 <Bot className="w-4 h-4" />
-                                <span className="text-xs font-semibold">독설봇</span>
+                                <span className="text-xs font-semibold">정서봇</span>
                             </div>
-                            <p className="text-sm">독설 준비중...</p>
+                            <p className="text-sm">정서봇 준비중...</p>
                         </div>
                     </div>
                 )}
@@ -341,7 +341,7 @@ export default function AppetiteControlChatbot() {
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyPress={handleKeyPress}
-                        placeholder="배고프다고? 어디 한번 말해봐..."
+                        placeholder="무엇이 문제인고... 고해보거라"
                         className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600"
                         disabled={isLoading}
                     />
