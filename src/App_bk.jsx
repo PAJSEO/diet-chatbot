@@ -2,15 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, LogIn } from 'lucide-react';
 
 export default function AppetiteControlChatbot() {
-    // --- 로그인/회원가입을 위한 상태 ---
-    const [userId, setUserId] = useState(null);
-    const [usernameInput, setUsernameInput] = useState('');
-    const [passwordInput, setPasswordInput] = useState('');
-    const [isRegister, setIsRegister] = useState(false); // 회원가입 모드 토글
-    const [authError, setAuthError] = useState('');     // 에러 메시지 표시
-
-    // --- 기존 챗봇 상태 ---
-    const [messages, setMessages] = useState([]);
+    const [userId, setUserId] = useState(null); // 사용자 ID 상태 추가
+    const [messages, setMessages] = useState([]); // 초기 메시지는 비워둠
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef(null);
@@ -23,7 +16,7 @@ export default function AppetiteControlChatbot() {
         scrollToBottom();
     }, [messages]);
 
-    // 앱 시작 시 localStorage에 저장된 ID가 있는지 확인
+    // 앱 시작 시 사용자 ID 확인 및 대화 기록 불러오기
     useEffect(() => {
         const savedUserId = localStorage.getItem('chatbotUserId');
         if (savedUserId) {
@@ -32,74 +25,35 @@ export default function AppetiteControlChatbot() {
         }
     }, []);
 
-    // 대화 기록 불러오기 함수
     const fetchHistory = async (id) => {
         setIsLoading(true);
         try {
             const response = await fetch(`https://diet-chatbot.vercel.app/api/history?userId=${id}`);
-            if (!response.ok) {
-                setMessages([{ role: 'assistant', content: `${id}님 환영합니다! 새로운 대화를 시작해보세요.` }]);
-                return;
-            };
+            if (!response.ok) return;
             const history = await response.json();
             setMessages([
-                { role: 'assistant', content: `${id}님, 다시 오셨네요. 이전 대화 기록을 불러왔습니다.` },
+                { role: 'assistant', content: `${id}, 다시 왔구나? 또 뭘 먹으려고.` },
                 ...history
             ]);
         } catch (error) {
             console.error("Failed to fetch history:", error);
-            setMessages([{ role: 'assistant', content: '대화 기록을 불러오는데 실패했습니다.' }]);
+            setMessages([{ role: 'assistant', content: '대화 기록을 불러오는데 실패했어.' }]);
         } finally {
             setIsLoading(false);
         }
     };
 
-    // 회원가입 처리 함수
-    const handleRegister = async (e) => {
-        e.preventDefault();
-        setAuthError('');
-        try {
-            const response = await fetch('https://diet-chatbot.vercel.app/api/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: usernameInput, password: passwordInput })
-            });
-            if (response.ok) {
-                alert('회원가입 성공! 이제 로그인 해주세요.');
-                setIsRegister(false); // 로그인 폼으로 전환
-            } else {
-                const message = await response.text();
-                setAuthError(message);
-            }
-        } catch (error) {
-            setAuthError('회원가입 중 에러가 발생했습니다.');
+    const handleLogin = () => {
+        const id = prompt("이름을 입력하세요 (예: 송정영):");
+        if (id && id.trim()) {
+            const trimmedId = id.trim();
+            localStorage.setItem('chatbotUserId', trimmedId);
+            setUserId(trimmedId);
+            fetchHistory(trimmedId);
         }
     };
 
-    // 로그인 처리 함수
-    const handleLogin = async (e) => {
-        e.preventDefault();
-        setAuthError('');
-        try {
-            const response = await fetch('https://diet-chatbot.vercel.app/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: usernameInput, password: passwordInput })
-            });
-            if (response.ok) {
-                localStorage.setItem('chatbotUserId', usernameInput);
-                setUserId(usernameInput);
-                fetchHistory(usernameInput);
-            } else {
-                const message = await response.text();
-                setAuthError(message);
-            }
-        } catch (error) {
-            setAuthError('로그인 중 에러가 발생했습니다.');
-        }
-    };
-
-    // (systemPrompt는 이전과 동일)
+    // Gemini가 이해할 수 있는 시스템 프롬프트 (조금 더 명확하게 수정)
     const systemPrompt = `당신은 '송정영'만을 위한 맞춤형 AI 조력자, 요미입니다. 당신은 그녀의 남자친구 '박정서'가 그녀의 성공적인 수험생활과 건강을 위해 만들었습니다. 당신의 목표는 송정영이 '대구교대 합격'과 아래의 '신체 재구성 목표'를 모두 달성하도록 돕는 것입니다.
 
     당신은 박정서처럼 욕설도 하면서 현실적인 대화를 하면서도, 다정하고 응원하는 마음을 가졌지만, 표현 방식은 정곡을 찌르는 절친처럼 위트 있고 직설적입니다. 항상 반말을 사용하며, '정영'이라고 이름을 부릅니다.
@@ -217,58 +171,24 @@ export default function AppetiteControlChatbot() {
         if (e.key === 'Enter') handleSubmit();
     };
 
-    // --- 렌더링 부분 ---
-
-    // 사용자 ID가 없으면 로그인/회원가입 UI를 보여줌
+    // 사용자 ID가 없으면 로그인 화면을 보여줌
     if (!userId) {
         return (
-            <div className="flex flex-col h-screen bg-gray-900 items-center justify-center text-white p-4">
-                <div className="w-full max-w-sm text-center">
-                    <Bot size={64} className="text-red-500 mb-4 mx-auto" />
-                    <h1 className="text-3xl font-bold mb-2">식욕 억제 독설 챗봇</h1>
-                    <p className="mb-6 text-gray-400">{isRegister ? '새로운 계정을 만드세요.' : '로그인이 필요합니다.'}</p>
-
-                    <form onSubmit={isRegister ? handleRegister : handleLogin}>
-                        <div className="space-y-4">
-                            <input
-                                type="text"
-                                value={usernameInput}
-                                onChange={(e) => setUsernameInput(e.target.value)}
-                                placeholder="이름 (ID)"
-                                className="w-full px-4 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600"
-                                required
-                            />
-                            <input
-                                type="password"
-                                value={passwordInput}
-                                onChange={(e) => setPasswordInput(e.target.value)}
-                                placeholder="비밀번호"
-                                className="w-full px-4 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600"
-                                required
-                            />
-                        </div>
-                        {authError && <p className="text-red-500 text-sm mt-4">{authError}</p>}
-                        <button
-                            type="submit"
-                            className="w-full flex items-center justify-center gap-2 px-6 py-3 mt-6 bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
-                        >
-                            <LogIn size={20} />
-                            {isRegister ? '회원가입' : '로그인'}
-                        </button>
-                    </form>
-
-                    <button
-                        onClick={() => { setIsRegister(!isRegister); setAuthError(''); }}
-                        className="mt-4 text-sm text-gray-400 hover:text-white"
-                    >
-                        {isRegister ? '이미 계정이 있으신가요? 로그인' : '계정이 없으신가요? 회원가입'}
-                    </button>
-                </div>
+            <div className="flex flex-col h-screen bg-gray-900 items-center justify-center text-white">
+                <Bot size={64} className="text-red-500 mb-4" />
+                <h1 className="text-3xl font-bold mb-2">식욕 억제 독설 챗봇</h1>
+                <p className="mb-6 text-gray-400">로그인이 필요합니다.</p>
+                <button
+                    onClick={handleLogin}
+                    className="flex items-center gap-2 px-6 py-3 bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+                >
+                    <LogIn size={20} />
+                    이름으로 시작하기
+                </button>
             </div>
         );
     }
 
-    // (로그인 후 보여줄 채팅방 return JSX는 이전과 동일)
     return (
         <div className="flex flex-col h-screen bg-gray-900">
             {/* Header */}
