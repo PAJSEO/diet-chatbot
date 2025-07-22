@@ -1,12 +1,12 @@
 import express from 'express';
+import { SPREADSHEET_ID, getAuth } from './utils.js'; // utils.js에서 가져오기
 import { google } from 'googleapis';
 
 const app = express();
 app.use(express.json());
 
-// CORS 헤더 설정
 app.use((req, res, next) => {
-    res.setHeader('Access-control-allow-origin', '*');
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') {
@@ -15,17 +15,7 @@ app.use((req, res, next) => {
     next();
 });
 
-const SPREADSHEET_ID = '1rAc4ioPe-iC5FsBa6VdGwGdSPOnBlW3RYjW1hNnQ9uY';
-
-async function getAuth() {
-    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
-    return new google.auth.GoogleAuth({
-        credentials,
-        scopes: 'https://www.googleapis.com/auth/spreadsheets',
-    });
-}
-
-// 이 파일은 /api/log 요청만 처리합니다.
+// 대화 내역 기록하는 API
 app.post('/api/log', async (req, res) => {
     const { userId, question, answer } = req.body;
     if (!userId || !question || !answer) {
